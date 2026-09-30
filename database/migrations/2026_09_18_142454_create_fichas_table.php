@@ -15,11 +15,10 @@ return new class extends Migration
             $table->id();
             $table->string('estudiante');
             $table->string('representante');
-            $table->string('cedulaRepresentante',10)->nullable();
-            $table->string('cedulaEstudiante',10)->nullable();
-            $table->string('telefono',15)->nullable();
-            
-            
+            $table->string('cedulaRepresentante', 10)->nullable();
+            $table->string('cedulaEstudiante', 10)->nullable();
+            $table->string('telefono', 15)->nullable();
+
             $table->date('fecha');
             $table->timestamps();
         });

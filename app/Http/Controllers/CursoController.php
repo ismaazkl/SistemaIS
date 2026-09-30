@@ -1,68 +1,128 @@
 <?php
 
 namespace App\Http\Controllers;
+
+use App\Http\Requests\SaveCursoRequest;
 use App\Models\Curso;
-use App\Models\Ficha;
-use Inertia\Inertia;
+use App\Models\Team;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class CursoController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the courses of the current team.
      */
-    public function index()
+    public function index(Request $request): Response
     {
+        $team = $this->team($request);
+        $search = $request->string('search')->trim()->value();
+
+        $cursos = Curso::query()
+            ->withCount('fichas')
+            ->forTeam($team)
+            ->search($search)
+            ->ordered()
+            ->get()
+            ->map(fn (Curso $curso): array => [
+                'id' => $curso->id,
+                'curso' => $curso->curso,
+                'fichasCount' => $curso->fichas_count,
+            ]);
+
         return Inertia::render('Cursos/Index', [
-            'cursos' => Curso::all(),
+            'cursos' => $cursos,
+            'filters' => ['search' => $search],
+            'canManage' => Gate::allows('create', Curso::class),
         ]);
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Store a newly created course.
      */
-    public function create()
+    public function store(SaveCursoRequest $request): RedirectResponse
     {
-        
+        Gate::authorize('create', Curso::class);
+
+        $curso = $this->team($request)->cursos()->create($request->validated());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => "Curso \"{$curso->curso}\" creado.",
+        ]);
+
+        return back();
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Update the given course.
      */
-    public function store(Request $request)
+    public function update(SaveCursoRequest $request): RedirectResponse
     {
-        //
+        $model = $this->findCurso($request);
+
+        Gate::authorize('update', $model);
+
+        $model->update($request->validated());
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Curso actualizado.',
+        ]);
+
+        return back();
     }
 
     /**
-     * Display the specified resource.
+     * Remove the given course.
      */
-    public function show(string $id)
+    public function destroy(Request $request): RedirectResponse
     {
-        //
+        $model = $this->findCurso($request);
+
+        Gate::authorize('delete', $model);
+
+        if ($model->fichas()->exists()) {
+            return back()->withErrors([
+                'curso' => 'No puedes eliminar un curso que tiene fichas registradas.',
+            ]);
+        }
+
+        $model->delete();
+
+        Inertia::flash('toast', [
+            'type' => 'success',
+            'message' => 'Curso eliminado.',
+        ]);
+
+        return back();
     }
 
     /**
-     * Show the form for editing the specified resource.
+     * Resolve the current team from the request.
      */
-    public function edit(string $id)
+    protected function team(Request $request): Team
     {
-        //
+        return $request->user()->currentTeam;
     }
 
     /**
-     * Update the specified resource in storage.
+     * Find the course of the current request, limited to the current team.
+     *
+     * The identifier is read from the route instead of the method signature
+     * because the team slug also occupies a route parameter position.
      */
-    public function update(Request $request, string $id)
+    protected function findCurso(Request $request): Curso
     {
-        //
-    }
+        $curso = Curso::forTeam($this->team($request))
+            ->whereKey($request->route('curso'))
+            ->first();
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(string $id)
-    {
-        //
+        abort_if($curso === null, 404);
+
+        return $curso;
     }
 }

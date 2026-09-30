@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Curso;
+use App\Models\Ficha;
 use App\Models\TeamInvitation;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -11,7 +13,10 @@ class DashboardController extends Controller
 {
     public function __invoke(Request $request): Response
     {
-        $email = strtolower($request->user()->email);
+        $user = $request->user();
+        $team = $user->currentTeam;
+
+        $email = strtolower($user->email);
 
         $pendingInvitations = TeamInvitation::query()
             ->with(['inviter', 'team'])
@@ -33,6 +38,26 @@ class DashboardController extends Controller
 
         return Inertia::render('dashboard', [
             'pendingInvitations' => $pendingInvitations,
+            'stats' => [
+                'totalFichas' => Ficha::forTeam($team)->count(),
+                'totalCursos' => Curso::forTeam($team)->count(),
+                'fichasDelMes' => Ficha::forTeam($team)
+                    ->whereYear('fecha', now()->year)
+                    ->whereMonth('fecha', now()->month)
+                    ->count(),
+            ],
+            'recentFichas' => Ficha::query()
+                ->with('curso')
+                ->forTeam($team)
+                ->latestFirst()
+                ->limit(8)
+                ->get()
+                ->map(fn (Ficha $ficha) => [
+                    'id' => $ficha->id,
+                    'estudiante' => $ficha->estudiante,
+                    'curso' => $ficha->curso->curso,
+                    'fecha' => $ficha->fecha->toDateString(),
+                ]),
         ]);
     }
 }

@@ -1,0 +1,31 @@
+export type Ficha = {
+    id: number;
+    estudiante: string;
+    representante: string;
+    cedula_estudiante: string;
+    cedula_representante: string;
+    telefono: string | null;
+    fecha: string;
+    curso_id: number;
+    curso: string | null;
+};
+
+export type FichaFilters = {
+    search: string;
+    curso_id: number | null;
+};
+
+export type FichaPagination = {
+    data: Ficha[];
+    links: {
+        url: string | null;
+        label: string;
+        active: boolean;
+    }[];
+    from: number | null;
+    to: number | null;
+    total: number;
+    current_page: number;
+    last_page: number;
+    per_page: number;
+};
